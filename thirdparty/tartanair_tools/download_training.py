@@ -46,7 +46,7 @@ def get_args():
     return args
 
 def _help():
-    print ''
+    print('')
 
 if __name__ == '__main__':
     args = get_args()
@@ -124,36 +124,39 @@ if __name__ == '__main__':
 
     print('{} files are going to be downloaded...'.format(len(downloadlist)))
     for fileurl in downloadlist:
-        print fileurl
+        print(fileurl)
+        
+    for i in range(10):
 
-    for fileurl in downloadlist:
-        zf = fileurl.split('/')
-        filename = zf[-1]
-        difflevel = zf[-2]
-        envname = zf[-3]
+        for fileurl in downloadlist:
+            zf = fileurl.split('/')
+            filename = zf[-1]
+            difflevel = zf[-2]
+            envname = zf[-3]
 
-        envfolder = outdir + '/' + envname
-        if not isdir(envfolder):
-            mkdir(envfolder)
-            print('Created a new env folder {}..'.format(envfolder))
-        # else: 
-        #     print('Env folder {} already exists..'.format(envfolder))
+            envfolder = outdir + '/' + envname
+            if not isdir(envfolder):
+                mkdir(envfolder)
+                print('Created a new env folder {}..'.format(envfolder))
+            # else: 
+            #     print('Env folder {} already exists..'.format(envfolder))
 
-        levelfolder = envfolder + '/' + difflevel
-        if not isdir(levelfolder):
-            mkdir(levelfolder)
-            print('  Created a new level folder {}..'.format(levelfolder))
-        # else: 
-        #     print('Level folder {} already exists..'.format(levelfolder))
+            levelfolder = envfolder + '/' + difflevel
+            if not isdir(levelfolder):
+                mkdir(levelfolder)
+                print('  Created a new level folder {}..'.format(levelfolder))
+            # else: 
+            #     print('Level folder {} already exists..'.format(levelfolder))
 
-        targetfile = levelfolder + '/' + filename
-        if isfile(targetfile):
-            print('Target file {} already exists..'.format(targetfile))
-            exit()
+            targetfile = levelfolder + '/' + filename
+            if isfile(targetfile):
+                print('Target file {} already exists..'.format(targetfile))
+                exit()
 
-        if args.azcopy:
-            cmd = 'azcopy copy ' + fileurl + ' ' + targetfile 
-        else:
-            cmd = 'wget -r -O ' + targetfile + ' ' + fileurl
-        print cmd
-        system(cmd)
+            if args.azcopy:
+                cmd = 'azcopy copy ' + fileurl + ' ' + targetfile 
+            else:
+                cmd = 'aria2c --auto-file-renaming=false -d /VerseeStorage1/DROID-SLAM/ -o ' + targetfile + ' ' + fileurl
+            
+            print(cmd)
+            system(cmd)

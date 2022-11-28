@@ -14,12 +14,14 @@ from .stream import RGBDStream
 from .tartan import TartanAirStream
 from .tartan import TartanAirTestStream
 
+from .scannet import ScanNet
+
 def dataset_factory(dataset_list, **kwargs):
     """ create a combined dataset """
 
     from torch.utils.data import ConcatDataset
 
-    dataset_map = { 'tartan': (TartanAir, ) }
+    dataset_map = { 'scannet': (ScanNet, ) }
     db_list = []
     for key in dataset_list:
         # cache datasets for faster future loading

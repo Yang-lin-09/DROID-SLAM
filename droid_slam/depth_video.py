@@ -39,6 +39,8 @@ class DepthVideo:
 
         # initialize poses to identity transformation
         self.poses[:] = torch.as_tensor([0, 0, 0, 0, 0, 0, 1], dtype=torch.float, device="cuda")
+        #self.poses[0] = torch.as_tensor([2.65583, 2.981598, 1.368648, 0.12508386, 0.8291717, -0.53868785, -0.08150905], dtype=torch.float, device="cuda")
+        #self.poses[1] = torch.as_tensor([2.649368, 2.97856, 1.365403, 0.13400016, 0.83202159, -0.53050289, -0.09138227], dtype=torch.float, device="cuda")
         
     def get_lock(self):
         return self.counter.get_lock()

@@ -150,9 +150,8 @@ checkpoints
 datasets
 runs
 cache
+reconstructions
 *.out
 *.o
 data
 figures/*.pdf
-
-

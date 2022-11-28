@@ -10,7 +10,6 @@ def pose_metrics(dE):
     """ Translation/Rotation/Scaling metrics from Sim3 """
     t, q, s = dE.data.split([3, 4, 1], -1)
     ang = SO3(q).log().norm(dim=-1)
-
     # convert radians to degrees
     r_err = (180 / np.pi) * ang
     t_err = t.norm(dim=-1)

@@ -15,7 +15,7 @@ dependencies:
   - cudatoolkit=11.3
   - tensorboard
   - scipy
-  - opencv
+  - python-opencv
   - tqdm
   - suitesparse
   - matplotlib

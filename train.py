@@ -53,15 +53,23 @@ def train(gpu, args):
     model.train()
 
     model = DDP(model, device_ids=[gpu], find_unused_parameters=False)
+    
+    
 
     if args.ckpt is not None:
-        model.load_state_dict(torch.load(args.ckpt))
+        state_dict = OrderedDict([
+                (k, v) for (k, v) in torch.load(args.ckpt).items()])
+        state_dict["module.update.weight.2.weight"] = state_dict["module.update.weight.2.weight"][:2]
+        state_dict["module.update.weight.2.bias"] = state_dict["module.update.weight.2.bias"][:2]
+        state_dict["module.update.delta.2.weight"] = state_dict["module.update.delta.2.weight"][:2]
+        state_dict["module.update.delta.2.bias"] = state_dict["module.update.delta.2.bias"][:2]
+        model.load_state_dict(state_dict)
 
     # fetch dataloader
-    db = dataset_factory(['tartan'], datapath=args.datapath, n_frames=args.n_frames, fmin=args.fmin, fmax=args.fmax)
+    db = dataset_factory(['scannet'], datapath=args.datapath, n_frames=args.n_frames, fmin=args.fmin, fmax=args.fmax, depth_max = args.depth_max, depth_min = args.depth_min, mask = not args.no_mask)
 
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        db, shuffle=True, num_replicas=args.world_size, rank=gpu)
+        db, shuffle=False, num_replicas=args.world_size, rank=gpu)
 
     train_loader = DataLoader(db, batch_size=args.batch, sampler=train_sampler, num_workers=2)
 
@@ -79,7 +87,7 @@ def train(gpu, args):
             optimizer.zero_grad()
 
             images, poses, disps, intrinsics = [x.to('cuda') for x in item]
-
+            
             # convert poses w2c -> c2w
             Ps = SE3(poses).inv()
             Gs = SE3.IdentityLike(Ps)
@@ -110,7 +118,7 @@ def train(gpu, args):
                 geo_loss, geo_metrics = losses.geodesic_loss(Ps, poses_est, graph, do_scale=False)
                 res_loss, res_metrics = losses.residual_loss(residuals)
                 flo_loss, flo_metrics = losses.flow_loss(Ps, disps, poses_est, disps_est, intrinsics, graph)
-
+                
                 loss = args.w1 * geo_loss + args.w2 * res_loss + args.w3 * flo_loss
                 loss.backward()
 
@@ -124,6 +132,7 @@ def train(gpu, args):
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
+            optimizer.zero_grad()
             scheduler.step()
             
             total_steps += 1
@@ -131,7 +140,7 @@ def train(gpu, args):
             if gpu == 0:
                 logger.push(metrics)
 
-            if total_steps % 10000 == 0 and gpu == 0:
+            if total_steps % 1000 == 0 and gpu == 0:
                 PATH = 'checkpoints/%s_%06d.pth' % (args.name, total_steps)
                 torch.save(model.state_dict(), PATH)
 
@@ -164,6 +173,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--fmin', type=float, default=8.0)
     parser.add_argument('--fmax', type=float, default=96.0)
+    parser.add_argument('--depth_max', type=float, default=10.0)
+    parser.add_argument('--depth_min', type=float, default=0.2)
+    parser.add_argument('--no_mask', action = 'store_true')
     parser.add_argument('--noise', action='store_true')
     parser.add_argument('--scale', action='store_true')
     parser.add_argument('--edges', type=int, default=24)

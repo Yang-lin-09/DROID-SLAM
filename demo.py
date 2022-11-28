@@ -34,10 +34,13 @@ def image_stream(imagedir, calib, stride):
     K[1,1] = fy
     K[1,2] = cy
 
+    file_list = os.listdir(imagedir)
+    file_list = [int(i.split('.')[0]) for i in file_list]
+    file_list = sorted(file_list)
     image_list = sorted(os.listdir(imagedir))[::stride]
 
-    for t, imfile in enumerate(image_list):
-        image = cv2.imread(os.path.join(imagedir, imfile))
+    for t, imfile in enumerate(file_list):
+        image = cv2.imread(os.path.join(imagedir, str(imfile) + '.jpg'))
         if len(calib) > 4:
             image = cv2.undistort(image, K, calib[4:])
 
@@ -82,10 +85,10 @@ if __name__ == '__main__':
     parser.add_argument("--imagedir", type=str, help="path to image directory")
     parser.add_argument("--calib", type=str, help="path to calibration file")
     parser.add_argument("--t0", default=0, type=int, help="starting frame")
-    parser.add_argument("--stride", default=3, type=int, help="frame stride")
+    parser.add_argument("--stride", default=1, type=int, help="frame stride")
 
     parser.add_argument("--weights", default="droid.pth")
-    parser.add_argument("--buffer", type=int, default=512)
+    parser.add_argument("--buffer", type=int, default=1024)
     parser.add_argument("--image_size", default=[240, 320])
     parser.add_argument("--disable_vis", action="store_true")
 
@@ -131,4 +134,4 @@ if __name__ == '__main__':
     if args.reconstruction_path is not None:
         save_reconstruction(droid, args.reconstruction_path)
 
-    traj_est = droid.terminate(image_stream(args.imagedir, args.calib, args.stride))
+    # traj_est = droid.terminate(image_stream(args.imagedir, args.calib, args.stride))

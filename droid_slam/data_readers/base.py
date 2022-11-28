@@ -17,7 +17,7 @@ from .augmentation import RGBDAugmentor
 from .rgbd_utils import *
 
 class RGBDDataset(data.Dataset):
-    def __init__(self, name, datapath, n_frames=4, crop_size=[384,512], fmin=8.0, fmax=75.0, do_aug=True):
+    def __init__(self, name, datapath, n_frames=4, crop_size=[384,512], fmin=8.0, fmax=75.0, do_aug=True, depth_max=10.0, depth_min=0.2, mask = True):
         """ Base class for RGBD dataset """
         self.aug = None
         self.root = datapath
@@ -26,6 +26,10 @@ class RGBDDataset(data.Dataset):
         self.n_frames = n_frames
         self.fmin = fmin # exclude very easy examples
         self.fmax = fmax # exclude very hard examples
+        
+        self.max_depth = depth_max
+        self.min_depth = depth_min
+        self.mask = mask
         
         if do_aug:
             self.aug = RGBDAugmentor(crop_size=crop_size)
@@ -45,12 +49,15 @@ class RGBDDataset(data.Dataset):
                 pickle.dump((scene_info,), cachefile)
 
         self.scene_info = scene_info
+        
+        
         self._build_dataset_index()
                 
     def _build_dataset_index(self):
         self.dataset_index = []
         for scene in self.scene_info:
             if not self.__class__.is_test_scene(scene):
+                
                 graph = self.scene_info[scene]['graph']
                 for i in graph:
                     if len(graph[i][0]) > self.n_frames:
@@ -82,7 +89,7 @@ class RGBDDataset(data.Dataset):
         # uncomment for nice visualization
         # import matplotlib.pyplot as plt
         # plt.imshow(d)
-        # plt.show()
+        # plt.show(block=False)
 
         graph = {}
         for i in range(d.shape[0]):
@@ -129,11 +136,13 @@ class RGBDDataset(data.Dataset):
         depths = np.stack(depths).astype(np.float32)
         poses = np.stack(poses).astype(np.float32)
         intrinsics = np.stack(intrinsics).astype(np.float32)
-
+        
         images = torch.from_numpy(images).float()
         images = images.permute(0, 3, 1, 2)
 
-        disps = torch.from_numpy(1.0 / depths)
+        if self.mask:
+            valid = (depths > self.min_depth) & (depths < self.max_depth)
+            disps = torch.from_numpy((1.0 / (depths + 1e-6)) * valid)
         poses = torch.from_numpy(poses)
         intrinsics = torch.from_numpy(intrinsics)
 
@@ -142,8 +151,8 @@ class RGBDDataset(data.Dataset):
                 self.aug(images, poses, disps, intrinsics)
 
         # scale scene
-        if len(disps[disps>0.01]) > 0:
-            s = disps[disps>0.01].mean()
+        if len(disps[disps > 0.01]) > 0:
+            s = disps[disps > 0.01].mean()
             disps = disps / s
             poses[...,:3] *= s
 
