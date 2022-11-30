@@ -15,6 +15,9 @@ from torch.multiprocessing import Process
 from droid import Droid
 
 import torch.nn.functional as F
+from PIL import Image
+import matplotlib as mpl
+import matplotlib.cm as cm
 
 
 def show_image(image):
@@ -47,16 +50,72 @@ def image_stream(imagedir, calib, stride):
         h0, w0, _ = image.shape
         h1 = int(h0 * np.sqrt((384 * 512) / (h0 * w0)))
         w1 = int(w0 * np.sqrt((384 * 512) / (h0 * w0)))
-
         image = cv2.resize(image, (w1, h1))
         image = image[:h1-h1%8, :w1-w1%8]
         image = torch.as_tensor(image).permute(2, 0, 1)
-
         intrinsics = torch.as_tensor([fx, fy, cx, cy])
         intrinsics[0::2] *= (w1 / w0)
         intrinsics[1::2] *= (h1 / h0)
 
         yield t, image[None], intrinsics
+
+def write_depth_img(filename, depth):
+    vmax = np.percentile(depth, 95)
+    normalizer = mpl.colors.Normalize(vmin=depth.min(), vmax=vmax)
+    mapper = cm.ScalarMappable(norm=normalizer, cmap='magma_r')
+    colormapped_im = (mapper.to_rgba(depth)[:, :, :3] * 255).astype(np.uint8)
+    im = Image.fromarray(colormapped_im)
+    im.save(filename)
+    
+def quaternion_rotation_matrix(Q):
+    """
+    Covert a quaternion into a full three-dimensional rotation matrix.
+ 
+    Input
+    :param Q: A 4 element array representing the quaternion (q0,q1,q2,q3) 
+ 
+    Output
+    :return: A 3x3 element matrix representing the full 3D rotation matrix. 
+             This rotation matrix converts a point in the local reference 
+             frame to a point in the global reference frame.
+    """
+    # Extract the values from Q
+    t0 = Q[0]
+    t1 = Q[1]
+    t2 = Q[2]
+    
+    q0 = Q[3]
+    q1 = Q[4]
+    q2 = Q[5]
+    q3 = Q[6]
+     
+    # First row of the rotation matrix
+    r00 = 2 * (q0 * q0 + q1 * q1) - 1
+    r01 = 2 * (q1 * q2 - q0 * q3)
+    r02 = 2 * (q1 * q3 + q0 * q2)
+     
+    # Second row of the rotation matrix
+    r10 = 2 * (q1 * q2 + q0 * q3)
+    r11 = 2 * (q0 * q0 + q2 * q2) - 1
+    r12 = 2 * (q2 * q3 - q0 * q1)
+     
+    # Third row of the rotation matrix
+    r20 = 2 * (q1 * q3 - q0 * q2)
+    r21 = 2 * (q2 * q3 + q0 * q1)
+    r22 = 2 * (q0 * q0 + q3 * q3) - 1
+     
+    # 3x3 rotation matrix
+    rot_matrix = np.array([[r00, r01, r02, t0],
+                           [r10, r11, r12, t1],
+                           [r20, r21, r22, t2],
+                           [0.0, 0.0, 0.0, 1.0]])
+                            
+    return rot_matrix
+
+def intr_to_matrix(Q):
+    return np.array([[Q[0], 0.0, Q[2]],
+              [0.0, Q[1], Q[3]],
+              [0.0, 0.0, 0.0]])
 
 
 def save_reconstruction(droid, reconstruction_path):
@@ -68,16 +127,25 @@ def save_reconstruction(droid, reconstruction_path):
     t = droid.video.counter.value
     tstamps = droid.video.tstamp[:t].cpu().numpy()
     images = droid.video.images[:t].cpu().numpy()
-    disps = droid.video.disps_up[:t].cpu().numpy()
+    disps = droid.video.disps[:t].cpu().numpy()
     poses = droid.video.poses[:t].cpu().numpy()
     intrinsics = droid.video.intrinsics[:t].cpu().numpy()
-
+    print(images.shape, disps.shape, poses.shape, intrinsics.shape)
     Path("reconstructions/{}".format(reconstruction_path)).mkdir(parents=True, exist_ok=True)
-    np.save("reconstructions/{}/tstamps.npy".format(reconstruction_path), tstamps)
-    np.save("reconstructions/{}/images.npy".format(reconstruction_path), images)
-    np.save("reconstructions/{}/disps.npy".format(reconstruction_path), disps)
-    np.save("reconstructions/{}/poses.npy".format(reconstruction_path), poses)
-    np.save("reconstructions/{}/intrinsics.npy".format(reconstruction_path), intrinsics)
+    os.makedirs("reconstructions/{}/depth".format(reconstruction_path), exist_ok=True)
+    os.makedirs("reconstructions/{}/color".format(reconstruction_path), exist_ok=True)
+    os.makedirs("reconstructions/{}/pose".format(reconstruction_path), exist_ok=True)
+
+    for i in range(t):
+        cv2.imwrite('reconstructions/{}/color/{:05d}.jpg'.format(reconstruction_path, i), images[i].transpose((1, 2, 0)))
+        write_depth_img('reconstructions/{}/depth/{:05d}.png'.format(reconstruction_path, i), disps[i])
+        np.savetxt('reconstructions/{}/pose/{:05d}.txt'.format(reconstruction_path, i), quaternion_rotation_matrix(poses[i]))
+        np.savetxt('reconstructions/{}/intrinsic_depth.txt'.format(reconstruction_path, i), intr_to_matrix(intrinsics[0]))
+    # np.save("reconstructions/{}/tstamps.npy".format(reconstruction_path), tstamps)
+    # np.save("reconstructions/{}/images.npy".format(reconstruction_path), images)
+    # np.save("reconstructions/{}/disps.npy".format(reconstruction_path), disps)
+    # np.save("reconstructions/{}/poses.npy".format(reconstruction_path), poses)
+    # np.save("reconstructions/{}/intrinsics.npy".format(reconstruction_path), intrinsics)
 
 
 if __name__ == '__main__':
@@ -115,7 +183,8 @@ if __name__ == '__main__':
 
     # need high resolution depths
     if args.reconstruction_path is not None:
-        args.upsample = True
+        #args.upsample = True
+        pass
 
     tstamps = []
     for (t, image, intrinsics) in tqdm(image_stream(args.imagedir, args.calib, args.stride)):

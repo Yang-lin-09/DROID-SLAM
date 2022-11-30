@@ -39,7 +39,7 @@ class Droid:
             self.visualizer.start()
 
         # post processor - fill in poses for non-keyframes
-        self.traj_filler = PoseTrajectoryFiller(self.net, self.video)
+        self.traj_filler = PoseTrajectoryFiller(self.net, self.video) 
 
 
     def load_weights(self, weights):
@@ -80,9 +80,9 @@ class Droid:
         print("#" * 32)
         self.backend(7)
 
-        # torch.cuda.empty_cache()
-        # print("#" * 32)
-        # self.backend(12)
+        torch.cuda.empty_cache()
+        print("#" * 32)
+        self.backend(12)
 
         camera_trajectory = self.traj_filler(stream)
         return camera_trajectory.inv().data.cpu().numpy()

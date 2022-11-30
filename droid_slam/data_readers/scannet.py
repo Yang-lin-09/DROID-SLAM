@@ -73,8 +73,6 @@ class ScanNet(RGBDDataset):
     @staticmethod
     def pose_read(pose_file):
         pose = np.loadtxt(pose_file, delimiter = ' ').astype(np.float64)
-        print(pose_file)
-        print(pose_matrix_to_quaternion(pose))
         return pose_matrix_to_quaternion(pose)
     
     @staticmethod

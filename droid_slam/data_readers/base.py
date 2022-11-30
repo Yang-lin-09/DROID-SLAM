@@ -89,7 +89,7 @@ class RGBDDataset(data.Dataset):
         # uncomment for nice visualization
         # import matplotlib.pyplot as plt
         # plt.imshow(d)
-        # plt.show(block=False)
+        # plt.show()
 
         graph = {}
         for i in range(d.shape[0]):
