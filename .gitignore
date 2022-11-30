@@ -154,4 +154,4 @@ reconstructions
 *.out
 *.o
 data
-figures/*.pdf
+figures

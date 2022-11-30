@@ -127,7 +127,7 @@ def save_reconstruction(droid, reconstruction_path):
     t = droid.video.counter.value
     tstamps = droid.video.tstamp[:t].cpu().numpy()
     images = droid.video.images[:t].cpu().numpy()
-    disps = droid.video.disps[:t].cpu().numpy()
+    disps = droid.video.disps_up[:t].cpu().numpy()
     poses = droid.video.poses[:t].cpu().numpy()
     intrinsics = droid.video.intrinsics[:t].cpu().numpy()
     print(images.shape, disps.shape, poses.shape, intrinsics.shape)
@@ -183,8 +183,7 @@ if __name__ == '__main__':
 
     # need high resolution depths
     if args.reconstruction_path is not None:
-        #args.upsample = True
-        pass
+        args.upsample = True
 
     tstamps = []
     for (t, image, intrinsics) in tqdm(image_stream(args.imagedir, args.calib, args.stride)):
